@@ -35,6 +35,16 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   sidebar_with_animation: ^0.0.3
+  provider: ^6.1.4
+  image_picker: ^1.1.2
+  intl: ^0.20.2
+  url_launcher: ^6.3.1
+
+  fl_chart: ^0.68.0
+  carousel_slider: ^5.1.1
+  http: ^1.4.0
+  share_plus: ^11.0.0
+  
 
 dev_dependencies:
   flutter_test:
@@ -47,10 +57,11 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   persistent_bottom_nav_bar: ^6.2.1
-  draggable_expandable_fab:
-    git:
-      url: https://github.com/Tughra/draggable_expandable_fab.git
-      ref: master
+  # draggable_expandable_fab:
+  #   git:
+  #     url: https://github.com/Tughra/draggable_expandable_fab.git
+  #     ref: master
+  fan_floating_menu: any
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -62,11 +73,17 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
 
+  # To add assets to your application, add an assets section, like this:
+  assets:
+  - assets/images/car1.png
+  - assets/images/car2.png
+  - assets/images/car3.png
+  - assets/images/guru/guru1.jpeg
+  - assets/images/guru/guru2.jpeg
+  - assets/images/guru/guru3.jpeg
+  - assets/images/guru/guru4.jpeg
+  - assets/images/guru/guru5.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
