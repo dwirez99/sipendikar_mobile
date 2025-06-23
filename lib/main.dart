@@ -1,34 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:sippgkpd/pages/login_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/landingpages.dart';
 import 'pages/daftararticle.dart';
 import 'pages/siswa.dart';
 import 'widgets/navigation_button.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+  runApp(MyApp(isLoggedIn: token != null));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TK Dharma Wanita Lamong',
+      title: 'SIPPGKPD',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        primarySwatch: Colors.blue,
-        fontFamily: 'Roboto',
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
       initialRoute: '/',
       routes: {
         '/': (context) => const MainApp(),
+        '/login': (context) => const LoginPage(),
         '/home': (context) => const MainApp(),
         '/daftararticle': (context) => const ArticleListPage(),
         '/guru': (context) => const Scaffold(body: Center(child: Text('Halaman Guru'))),
@@ -46,8 +43,8 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> {
-  int _currentPageIndex = 0;
   final PageController _pageController = PageController();
+  final GlobalKey<CustomNavbarState> _navbarKey = GlobalKey<CustomNavbarState>();
 
   final List<Widget> _pages = const <Widget>[
     LandingPage(),
@@ -55,30 +52,27 @@ class _MainAppState extends State<MainApp> {
     DaftarSiswaPage(),
   ];
 
+  String _userRole = 'guest';
+  String _userName = 'Guest';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserInfo();
+  }
+
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userRole = prefs.getString('userRole') ?? 'guest';
+      _userName = prefs.getString('userName') ?? 'Guest';
+    });
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
-  }
-
-  void _navigateToPage(int index) {
-    setState(() {
-      _currentPageIndex = index;
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    });
-  }
-
-  // State for controlling the visibility of the navigation sidebar
-  bool _isNavbarVisible = false;
-
-  void _toggleNavbar() {
-    setState(() {
-      _isNavbarVisible = !_isNavbarVisible;
-    });
   }
 
   @override
@@ -86,72 +80,16 @@ class _MainAppState extends State<MainApp> {
     return Scaffold(
       body: Stack(
         children: [
-          // Main content using PageView for smooth transitions
           PageView(
             controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPageIndex = index;
-              });
-            },
             children: _pages,
           ),
-          
-          // Conditional display of the CustomNavbar
-          if (_isNavbarVisible)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _toggleNavbar,
-                child: Container(
-                  color: Colors.black.withOpacity(0.5),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: MediaQuery.of(context).size.width * 0.85,
-                        child: CustomNavbar(
-                          userRole: 'orangtua',
-                          userName: 'Dwi Rez',
-                          onLogout: () {
-                            _toggleNavbar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Logout pressed')),
-                            );
-                          },
-                          onProfile: () {
-                            _toggleNavbar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Profile pressed')),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentPageIndex,
-        onTap: _navigateToPage,
-        selectedItemColor: const Color(0xFF00B7FF),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event),
-            label: 'Kegiatan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Siswa',
+          CustomNavbar(
+            key: _navbarKey,
+            userRole: _userRole,
+            userName: _userName,
+            onLogout: null,
+            onProfile: null,
           ),
         ],
       ),
@@ -169,18 +107,19 @@ class _MainAppState extends State<MainApp> {
           border: Border.all(color: Colors.white, width: 3),
         ),
         child: FloatingActionButton(
-          onPressed: _toggleNavbar,
+          onPressed: () {
+            _navbarKey.currentState?.openSidebar();
+          },
           elevation: 4,
-          backgroundColor: const Color(0xFFF58B05),  // Orange color to match nav header
+          backgroundColor: const Color(0xFFF58B05),
           shape: const CircleBorder(),
           child: ClipOval(
             child: Image.asset(
               'assets/images/logo/logo_dw.png',
-              width: 40,
-              height: 40,
+              width: 80,
+              height: 80,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                print('Error loading logo: $error');
                 return const Icon(Icons.school, color: Colors.white, size: 32);
               },
             ),
@@ -191,6 +130,3 @@ class _MainAppState extends State<MainApp> {
     );
   }
 }
-
-// Because we're no longer using the Z-Score page, we can remove this class.
-// If you need to add it back in the future, you can create a separate file for it.

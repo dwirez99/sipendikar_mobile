@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CustomNavbar extends StatefulWidget {
   final String userRole;
@@ -15,24 +16,27 @@ class CustomNavbar extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<CustomNavbar> createState() => _CustomNavbarState();
+  CustomNavbarState createState() => CustomNavbarState();
 }
 
-class _CustomNavbarState extends State<CustomNavbar>
+class CustomNavbarState extends State<CustomNavbar>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   bool _isSidebarOpen = false;
 
+  String _userRole = 'guest';
+  String _userName = 'Guest';
+
   @override
   void initState() {
     super.initState();
+    _loadUserInfo();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -40,7 +44,6 @@ class _CustomNavbarState extends State<CustomNavbar>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-
     _slideAnimation = Tween<Offset>(
       begin: const Offset(-1.0, 0.0),
       end: Offset.zero,
@@ -48,6 +51,40 @@ class _CustomNavbarState extends State<CustomNavbar>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
+  }
+
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    String userRole = 'guest';
+    final rolesString = prefs.getString('userRole');
+    if (rolesString != null && rolesString.isNotEmpty) {
+      // Cek jika rolesString adalah list JSON
+      if ((rolesString.startsWith('[') && rolesString.endsWith(']')) || rolesString.contains(',')) {
+        // Coba parse sebagai list
+        try {
+          final rolesList = rolesString
+              .replaceAll('[', '')
+              .replaceAll(']', '')
+              .replaceAll('"', '')
+              .replaceAll("'", '')
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+          if (rolesList.isNotEmpty) {
+            userRole = rolesList.first;
+          }
+        } catch (_) {
+          userRole = rolesString;
+        }
+      } else {
+        userRole = rolesString;
+      }
+    }
+    setState(() {
+      _userRole = userRole;
+      _userName = prefs.getString('userName') ?? widget.userName;
+    });
   }
 
   @override
@@ -77,44 +114,19 @@ class _CustomNavbarState extends State<CustomNavbar>
     }
   }
 
+  void openSidebar() {
+    if (!_isSidebarOpen) {
+      setState(() {
+        _isSidebarOpen = true;
+      });
+      _animationController.forward();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // FAB logo button (kanan bawah)
-        Positioned(
-          right: 24,
-          bottom: 24,
-          child: GestureDetector(
-            onTap: _toggleSidebar,
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(color: Colors.black, width: 2),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Image.asset(
-                  'assets/logo.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.school, size: 32, color: Colors.grey);
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
         // Overlay untuk menutup sidebar
         if (_isSidebarOpen)
           GestureDetector(
@@ -164,6 +176,8 @@ class _CustomNavbarState extends State<CustomNavbar>
   }
 
   Widget _buildSidebarContent() {
+    final userRole = _userRole;
+    final userName = _userName;
     return Column(
       children: [
         // Header
@@ -179,7 +193,7 @@ class _CustomNavbarState extends State<CustomNavbar>
             child: Row(
               children: [
                 Image.asset(
-                  'assets/logo.png',
+                  'assets/images/logo/logo_dw.png',
                   width: 40,
                   height: 40,
                 ),
@@ -228,24 +242,14 @@ class _CustomNavbarState extends State<CustomNavbar>
                 },
               ),
               _buildMenuItem(
-                icon: Icons.info,
-                title: 'Tentang Kami',
+                icon: Icons.login,
+                title: 'Login',
                 onTap: () {
                   _closeSidebar();
-                  Navigator.pushNamed(context, '/about');
+                  Navigator.pushNamed(context, '/login');
                 },
               ),
-              _buildMenuItem(
-                icon: Icons.school,
-                title: 'Daftar Guru',
-                onTap: () {
-                  _closeSidebar();
-                  Navigator.pushNamed(context, '/guru');
-                },
-              ),
-
-              // Menu khusus berdasarkan role
-              if (widget.userRole == 'orangtua') ...[
+              if (userRole == 'orangtua') ...[
                 const Divider(),
                 _buildExpansionTile(
                   icon: Icons.child_care,
@@ -268,8 +272,7 @@ class _CustomNavbarState extends State<CustomNavbar>
                   ],
                 ),
               ],
-
-              if (widget.userRole == 'guru') ...[
+              if (userRole == 'guru') ...[
                 const Divider(),
                 _buildExpansionTile(
                   icon: Icons.manage_accounts,
@@ -331,7 +334,7 @@ class _CustomNavbarState extends State<CustomNavbar>
                     ),
                     child: Center(
                       child: Text(
-                        widget.userName.substring(0, 2).toUpperCase(),
+                        userName.length >= 2 ? userName.substring(0, 2).toUpperCase() : userName.toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -342,7 +345,7 @@ class _CustomNavbarState extends State<CustomNavbar>
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      widget.userName,
+                      userName,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -354,7 +357,7 @@ class _CustomNavbarState extends State<CustomNavbar>
               const SizedBox(height: 12),
               Row(
                 children: [
-                  if (widget.userRole == 'orangtua')
+                  if (userRole == 'orangtua')
                     Expanded(
                       child: _buildActionButton(
                         icon: Icons.person,
@@ -365,15 +368,21 @@ class _CustomNavbarState extends State<CustomNavbar>
                         },
                       ),
                     ),
-                  if (widget.userRole == 'orangtua') const SizedBox(width: 12),
+                  if (userRole == 'orangtua') const SizedBox(width: 12),
                   Expanded(
                     child: _buildActionButton(
                       icon: Icons.logout,
                       label: 'Logout',
                       color: Colors.red,
-                      onTap: () {
+                      onTap: () async {
                         _closeSidebar();
-                        widget.onLogout?.call();
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.remove('token');
+                        await prefs.remove('userRole');
+                        await prefs.remove('userName');
+                        if (context.mounted) {
+                          Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                        }
                       },
                     ),
                   ),

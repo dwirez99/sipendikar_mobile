@@ -9,6 +9,10 @@ import 'package:sippgkpd/widgets/article_widget.dart';
 import 'package:sippgkpd/widgets/section_card.dart';
 import 'package:sippgkpd/widgets/teacher_card.dart';
 import 'package:sippgkpd/widgets/titled_section.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as latlng;
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -21,10 +25,43 @@ class _LandingPageState extends State<LandingPage> {
   int _carouselIndex = 0;
   late Future<List<Article>> _articles;
 
+  // Koordinat TK Dharma Wanita Lamong
+  static const latlng.LatLng _tkLocation = latlng.LatLng(-7.758924828361875, 112.21004309854357); // Ganti dengan koordinat sebenarnya
+  latlng.LatLng? _userLatLng;
+  double? _distanceInMeters;
+
   @override
   void initState() {
     super.initState();
     _articles = ApiService().getArticles();
+    _getUserLocation();
+  }
+
+  Future<void> _getUserLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+    if (permission == LocationPermission.deniedForever) return;
+
+    final position = await Geolocator.getCurrentPosition();
+    final userLatLng = latlng.LatLng(position.latitude, position.longitude);
+    final distance = latlng.Distance().as(
+      latlng.LengthUnit.Meter,
+      userLatLng,
+      _tkLocation,
+    );
+    setState(() {
+      _userLatLng = userLatLng;
+      _distanceInMeters = distance;
+    });
   }
 
   // Sample data for carousel images
@@ -39,11 +76,6 @@ class _LandingPageState extends State<LandingPage> {
     {
       'name': 'Ibu Siti Innamanasiroh',
       'position': 'Kepala Sekolah',
-      'image': 'assets/tiara_basori.webp'
-    },
-    {
-      'name': 'Ibu Tiara Basori',
-      'position': 'Guru Kelas A',
       'image': 'assets/images/guru/guru1.jpeg'
     },
     {
@@ -76,7 +108,6 @@ class _LandingPageState extends State<LandingPage> {
       child: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            // Refresh articles data
             setState(() {
               _articles = ApiService().getArticles();
             });
@@ -87,25 +118,18 @@ class _LandingPageState extends State<LandingPage> {
             child: Column(
               children: [
                 const SizedBox(height: 8),
-                
                 // Carousel Section
                 _buildCarouselSection(),
-                
                 // Welcome Section
                 _buildWelcomeSection(),
-
                 // Articles Section
                 _buildArticlesSection(),
-                
                 // Teachers Section
                 _buildTeachersSection(),
-                
                 // Statistics Section
                 _buildStatisticsSection(),
-                
                 // About Section
                 _buildAboutSection(),
-                
                 // Footer padding for bottom navigation
                 const SizedBox(height: 80),
               ],
@@ -634,10 +658,8 @@ class _LandingPageState extends State<LandingPage> {
             ),
           ),
           const SizedBox(height: 16),
-          // Stack content vertically for mobile
           Column(
             children: [
-              // Logo section
               Container(
                 height: 80,
                 width: 80,
@@ -646,7 +668,7 @@ class _LandingPageState extends State<LandingPage> {
                   color: Colors.grey[200],
                 ),
                 child: Image.asset(
-                  'assets/logo.png',
+                  'assets/images/logo/logo_dw.png',
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
                     return const Icon(Icons.school, size: 40, color: Colors.grey);
@@ -654,7 +676,6 @@ class _LandingPageState extends State<LandingPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Description text
               const Text(
                 'TK Dharma Wanita Lamong berkomitmen membangun fondasi karakter, kemandirian, dan rasa ingin tahu anak sejak usia dini. Berlokasi di Jl. Glatik RT 03 RW 03, Dusun Lamong, TK ini siap menjadi tempat terbaik bagi generasi kecil untuk tumbuh, belajar, dan bermimpi lebih tinggi.',
                 style: TextStyle(
@@ -665,36 +686,59 @@ class _LandingPageState extends State<LandingPage> {
                 textAlign: TextAlign.justify,
               ),
               const SizedBox(height: 16),
-            ],
-          ),
-          // Location map placeholder
-          Container(
-            height: 150, // Reduced height for mobile
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[400]!),
-            ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.map, size: 30, color: Colors.grey),
-                  SizedBox(height: 4),
-                  Text(
-                    'Lokasi TK Dharma Wanita Lamong',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                    textAlign: TextAlign.center,
+              // OpenStreetMap
+              SizedBox(
+                height: 200,
+                width: double.infinity,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: _tkLocation,
+                      initialZoom: 16,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        subdomains: const ['a', 'b', 'c'],
+                        userAgentPackageName: 'com.example.sippgkpd',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            width: 40,
+                            height: 40,
+                            point: _tkLocation,
+                            child: const Icon(Icons.location_on, color: Colors.red, size: 36),
+                          ),
+                          if (_userLatLng != null)
+                            Marker(
+                              width: 40,
+                              height: 40,
+                              point: _userLatLng!,
+                              child: const Icon(Icons.person_pin_circle, color: Colors.blue, size: 36),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
-                  Text(
-                    'Jl. Glatik RT 03 RW 03, Dusun Lamong',
-                    style: TextStyle(color: Colors.grey, fontSize: 10),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              if (_distanceInMeters != null)
+                Text(
+                  'Jarak ke TK: ' +
+                      (_distanceInMeters! > 1000
+                          ? (_distanceInMeters! / 1000).toStringAsFixed(2) + ' km'
+                          : _distanceInMeters!.toStringAsFixed(0) + ' m'),
+                  style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold),
+                ),
+              if (_userLatLng == null)
+                const Text(
+                  'Mengambil lokasi Anda... (Pastikan izin lokasi aktif)',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+            ],
           ),
         ],
       ),
