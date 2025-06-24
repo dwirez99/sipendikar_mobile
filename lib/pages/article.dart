@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sippgkpd/models/article.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart' as share_plus;
+import 'package:flutter_html/flutter_html.dart';
 
 class ArticleDetailScreen extends StatelessWidget {
   final Article article;
@@ -136,12 +137,16 @@ class ArticleDetailScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      article.content,
-                      style: const TextStyle(
-                        fontSize: 16.0,
-                        height: 1.5, // Line height for better readability
-                      ),
+                    Html(
+                      data: article.content,
+                      style: {
+                        "body": Style(
+                          margin: Margins.zero,
+                          padding: HtmlPaddings.zero,
+                          fontSize: FontSize(16),
+                          color: Colors.black87,
+                        ),
+                      },
                     ),
                     
                     // Copy text button
@@ -226,4 +231,3 @@ class ArticleDetailScreen extends StatelessWidget {
     share_plus.Share.share(shareText, subject: article.title);
   }
 }
-  

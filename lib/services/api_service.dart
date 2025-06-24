@@ -1,10 +1,30 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/article.dart';
 
 class ApiService {
   final String baseUrl = "https://projek1-production.up.railway.app/api";
 
+  Future<Map<String, String>> _getAuthHeaders({bool withContentType = true}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    final headers = {
+      'Accept': 'application/json',
+    };
+
+    if (withContentType) {
+      headers['Content-Type'] = 'application/json; charset=UTF-8';
+    }
+
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return headers;
+  }
   Future<List<Article>> getArticles() async {
     try {
       print('Fetching articles from: $baseUrl/artikels');
@@ -144,10 +164,7 @@ class ApiService {
       print('Creating article with title: $title');
       final response = await http.post(
         Uri.parse('$baseUrl/artikels'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
+        headers: await _getAuthHeaders(),
         body: jsonEncode(<String, String>{
           'judul': title,
           'konten': content,
@@ -191,6 +208,8 @@ class ApiService {
             imageUrl: imageUrl,
           );
         }
+      } else if (response.statusCode == 401) {
+        throw "Sesi Anda telah berakhir. Silakan login kembali.";
       } else if (response.statusCode == 422) {
         // Validation error
         try {
@@ -218,10 +237,7 @@ class ApiService {
       print('Updating article id: $id');
       final response = await http.put(
         Uri.parse('$baseUrl/artikels/$id'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
+        headers: await _getAuthHeaders(),
         body: jsonEncode(<String, String>{
           'judul': title,
           'konten': content,
@@ -265,6 +281,8 @@ class ApiService {
             imageUrl: imageUrl,
           );
         }
+      } else if (response.statusCode == 401) {
+        throw "Sesi Anda telah berakhir. Silakan login kembali.";
       } else if (response.statusCode == 404) {
         throw "Kegiatan tidak ditemukan. Mungkin sudah dihapus.";
       } else if (response.statusCode == 422) {
@@ -294,9 +312,7 @@ class ApiService {
       print('Deleting article id: $id');
       final response = await http.delete(
         Uri.parse('$baseUrl/artikels/$id'),
-        headers: <String, String>{
-          'Accept': 'application/json',
-        },
+        headers: await _getAuthHeaders(withContentType: false),
       ).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw "Koneksi timeout. Silakan coba lagi nanti.",
@@ -307,6 +323,8 @@ class ApiService {
       // Accept multiple success status codes, as APIs may respond differently
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return; // Success
+      } else if (response.statusCode == 401) {
+        throw "Sesi Anda telah berakhir. Silakan login kembali.";
       } else if (response.statusCode == 404) {
         throw "Kegiatan tidak ditemukan. Mungkin sudah dihapus.";
       } else if (response.statusCode == 403) {
@@ -321,6 +339,53 @@ class ApiService {
       } else {
         throw "Gagal menghapus kegiatan: ${e.toString()}";
       }
+    }
+  }
+
+  Future<Article> createArticleMultipart(String title, String content, File? thumbnail) async {
+    final uri = Uri.parse('$baseUrl/artikels');
+    final request = http.MultipartRequest('POST', uri);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    request.headers['Accept'] = 'application/json';
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.fields['judul'] = title;
+    request.fields['konten'] = content;
+    if (thumbnail != null) {
+      request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnail.path));
+    }
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return Article.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Gagal membuat artikel: ${response.body}');
+    }
+  }
+
+  Future<Article> updateArticleMultipart(int id, String title, String content, File? thumbnail) async {
+    final uri = Uri.parse('$baseUrl/artikels/$id');
+    final request = http.MultipartRequest('POST', uri);
+    request.fields['_method'] = 'PUT';
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    request.headers['Accept'] = 'application/json';
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.fields['judul'] = title;
+    request.fields['konten'] = content;
+    if (thumbnail != null) {
+      request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnail.path));
+    }
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 200) {
+      return Article.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Gagal update artikel: ${response.body}');
     }
   }
 }

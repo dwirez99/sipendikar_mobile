@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:sippgkpd/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/landingpages.dart';
 import 'pages/daftararticle.dart';
 import 'pages/siswa.dart';
+import 'pages/manage_kegiatan_page.dart';
 import 'widgets/navigation_button.dart';
 
 void main() async {
@@ -22,6 +25,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'SIPPGKPD',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        FlutterQuillLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en'), // English
+        Locale('id'), // Indonesian
+      ],
       initialRoute: '/',
       routes: {
         '/': (context) => const MainApp(),
@@ -30,6 +43,7 @@ class MyApp extends StatelessWidget {
         '/daftararticle': (context) => const ArticleListPage(),
         '/guru': (context) => const Scaffold(body: Center(child: Text('Halaman Guru'))),
         '/about': (context) => const Scaffold(body: Center(child: Text('Tentang Kami'))),
+        '/kegiatan-instansi': (context) => const ManageKegiatanPage(),
       },
     );
   }
