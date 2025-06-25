@@ -282,14 +282,7 @@ class CustomNavbarState extends State<CustomNavbar>
                       title: 'Kelola Peserta Didik',
                       onTap: () {
                         _closeSidebar();
-                        Navigator.pushNamed(context, '/peserta-didik');
-                      },
-                    ),
-                    _buildSubMenuItem(
-                      title: 'Kelola Wali Murid',
-                      onTap: () {
-                        _closeSidebar();
-                        Navigator.pushNamed(context, '/wali-murid');
+                        Navigator.pushNamed(context, '/kelola-pesertadidik');
                       },
                     ),
                     _buildSubMenuItem(
@@ -304,6 +297,13 @@ class CustomNavbarState extends State<CustomNavbar>
                       onTap: () {
                         _closeSidebar();
                         Navigator.pushNamed(context, '/kegiatan-instansi');
+                      },
+                    ),
+                    _buildSubMenuItem(
+                      title: 'Kelola Orangtua',
+                      onTap: () {
+                        _closeSidebar();
+                        Navigator.pushNamed(context, '/kelola-orangtua');
                       },
                     ),
                   ],

@@ -53,6 +53,7 @@ dependencies:
   flutter_html: ^3.0.0
   flutter_quill: ^11.4.1
   flutter_quill_extensions: ^11.0.0
+  file_picker: ^10.2.0
 
 dev_dependencies:
   flutter_test:

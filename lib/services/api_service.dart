@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mime/mime.dart' as mime;
 import '../models/article.dart';
+import '../models/orangtua.dart';
+import '../models/pesertadidik.dart';
 
 class ApiService {
   final String baseUrl = "https://projek1-production.up.railway.app/api";
@@ -386,6 +390,210 @@ class ApiService {
       return Article.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Gagal update artikel: ${response.body}');
+    }
+  }
+
+  Future<List<Orangtua>> getOrangtuaList() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/orangtuas'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final List<dynamic> list = data is List ? data : (data['data'] ?? data['orangtuas'] ?? []);
+      return list.map((e) => Orangtua.fromJson(e)).toList();
+    } else {
+      throw Exception('Gagal memuat data orangtua');
+    }
+  }
+
+  Future<Orangtua> getOrangtuaDetail(int id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/orangtuas/$id'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      return Orangtua.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Gagal memuat detail orangtua');
+    }
+  }
+
+  Future<Orangtua> createOrangtua(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/orangtuas'),
+      headers: await _getAuthHeaders(),
+      body: jsonEncode(data),
+    );
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return Orangtua.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Gagal menambah orangtua: ${response.body}');
+    }
+  }
+
+  Future<Orangtua> updateOrangtua(int id, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/orangtuas/$id'),
+      headers: await _getAuthHeaders(),
+      body: jsonEncode(data),
+    );
+    if (response.statusCode == 200) {
+      return Orangtua.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Gagal update orangtua: ${response.body}');
+    }
+  }
+
+  Future<void> deleteOrangtua(int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/orangtuas/$id'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode != 204) {
+      throw Exception('Gagal menghapus orangtua');
+    }
+  }
+
+  // Peserta Didik CRUD
+  Future<List<PesertaDidik>> getPesertaDidikList() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/pesertadidiks'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      // Handle paginated response: { pesertadidiks: { data: [...] } }
+      List<dynamic> list;
+      if (data is List) {
+        list = data;
+      } else if (data['pesertadidiks'] != null && data['pesertadidiks']['data'] != null) {
+        list = data['pesertadidiks']['data'];
+      } else if (data['data'] != null) {
+        list = data['data'];
+      } else {
+        throw Exception('Format data peserta didik tidak dikenali');
+      }
+      return list.map((e) => PesertaDidik.fromJson(e)).toList();
+    } else {
+      throw Exception('Gagal memuat data peserta didik');
+    }
+  }
+
+  Future<PesertaDidik> getPesertaDidikDetail(String nis) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/pesertadidiks/$nis'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      return PesertaDidik.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Gagal memuat detail peserta didik');
+    }
+  }
+
+  Future<PesertaDidik> createPesertaDidik(Map<String, dynamic> data, {File? foto, File? filePenilaian}) async {
+    final uri = Uri.parse('$baseUrl/pesertadidiks');
+    final request = http.MultipartRequest('POST', uri);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    request.headers['Accept'] = 'application/json';
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    data.forEach((key, value) {
+      if (value != null) request.fields[key] = value.toString();
+    });
+    if (foto != null) {
+      final mimeType = mime.lookupMimeType(foto.path);
+      final length = await foto.length();
+      print('Uploading foto: path=${foto.path}, size=$length, mimeType=$mimeType');
+      request.files.add(await http.MultipartFile.fromPath(
+        'foto',
+        foto.path,
+        contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+      ));
+    }
+    if (filePenilaian != null) {
+      final mimeType = mime.lookupMimeType(filePenilaian.path);
+      request.files.add(await http.MultipartFile.fromPath(
+        'file_penilaian',
+        filePenilaian.path,
+        contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+      ));
+    }
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return PesertaDidik.fromJson(jsonDecode(response.body));
+    } else {
+      print('Gagal menambah peserta didik: status=${response.statusCode}, body=${response.body}');
+      throw Exception('Gagal menambah peserta didik: ${response.body}');
+    }
+  }
+
+  Future<PesertaDidik> updatePesertaDidik(String nis, Map<String, dynamic> data, {File? foto, File? filePenilaian}) async {
+    final uri = Uri.parse('$baseUrl/pesertadidiks/$nis');
+    final request = http.MultipartRequest('POST', uri);
+    request.fields['_method'] = 'PUT';
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    request.headers['Accept'] = 'application/json';
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    data.forEach((key, value) {
+      if (value != null) request.fields[key] = value.toString();
+    });
+    if (foto != null) {
+      final mimeType = mime.lookupMimeType(foto.path);
+      request.files.add(await http.MultipartFile.fromPath(
+        'foto',
+        foto.path,
+        contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+      ));
+    }
+    if (filePenilaian != null) {
+      final mimeType = mime.lookupMimeType(filePenilaian.path);
+      request.files.add(await http.MultipartFile.fromPath(
+        'file_penilaian',
+        filePenilaian.path,
+        contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+      ));
+    }
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 200) {
+      return PesertaDidik.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Gagal update peserta didik: ${response.body}');
+    }
+  }
+
+  Future<void> deletePesertaDidik(String nis) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/pesertadidiks/$nis'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('Gagal menghapus peserta didik');
+    }
+  }
+
+  Future<void> uploadPenilaian(String nis, File filePenilaian) async {
+    final uri = Uri.parse('$baseUrl/pesertadidiks/$nis/upload-penilaian');
+    final request = http.MultipartRequest('POST', uri);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    request.headers['Accept'] = 'application/json';
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.files.add(await http.MultipartFile.fromPath('file_penilaian', filePenilaian.path));
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Gagal upload file penilaian: ${response.body}');
     }
   }
 }

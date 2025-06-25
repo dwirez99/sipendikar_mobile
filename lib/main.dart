@@ -5,8 +5,9 @@ import 'package:sippgkpd/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/landingpages.dart';
 import 'pages/daftararticle.dart';
-import 'pages/siswa.dart';
 import 'pages/manage_kegiatan_page.dart';
+import 'pages/manage_orangtua_page.dart';
+import 'pages/manage_pesertadidik_page.dart';
 import 'widgets/navigation_button.dart';
 
 void main() async {
@@ -44,6 +45,8 @@ class MyApp extends StatelessWidget {
         '/guru': (context) => const Scaffold(body: Center(child: Text('Halaman Guru'))),
         '/about': (context) => const Scaffold(body: Center(child: Text('Tentang Kami'))),
         '/kegiatan-instansi': (context) => const ManageKegiatanPage(),
+        '/kelola-orangtua': (context) => const ManageOrangtuaPage(),
+        '/kelola-pesertadidik': (context) => const ManagePesertaDidikPage(),
       },
     );
   }
@@ -63,7 +66,6 @@ class _MainAppState extends State<MainApp> {
   final List<Widget> _pages = const <Widget>[
     LandingPage(),
     ArticleListPage(),
-    DaftarSiswaPage(),
   ];
 
   String _userRole = 'guest';
