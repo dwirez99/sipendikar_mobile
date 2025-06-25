@@ -28,11 +28,13 @@ class CustomNavbarState extends State<CustomNavbar>
 
   String _userRole = 'guest';
   String _userName = 'Guest';
+  double _currentRating = 3.0; // State for the rating slider
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadLastRating(); // Call to load the last saved rating
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -58,9 +60,8 @@ class CustomNavbarState extends State<CustomNavbar>
     String userRole = 'guest';
     final rolesString = prefs.getString('userRole');
     if (rolesString != null && rolesString.isNotEmpty) {
-      // Cek jika rolesString adalah list JSON
-      if ((rolesString.startsWith('[') && rolesString.endsWith(']')) || rolesString.contains(',')) {
-        // Coba parse sebagai list
+      if ((rolesString.startsWith('[') && rolesString.endsWith(']')) ||
+          rolesString.contains(',')) {
         try {
           final rolesList = rolesString
               .replaceAll('[', '')
@@ -85,6 +86,20 @@ class CustomNavbarState extends State<CustomNavbar>
       _userRole = userRole;
       _userName = prefs.getString('userName') ?? widget.userName;
     });
+  }
+
+  // New: Function to load the last saved rating
+  Future<void> _loadLastRating() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentRating = prefs.getDouble('lastUserRating') ?? 3.0;
+    });
+  }
+
+  // New: Function to save the current rating
+  Future<void> _saveRating(double rating) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('lastUserRating', rating);
   }
 
   @override
@@ -271,6 +286,26 @@ class CustomNavbarState extends State<CustomNavbar>
                     ),
                   ],
                 ),
+                // New: Rating Satisfaction for Parents
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Rating Kepuasan Anda:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildRatingSlider(), // Calls the rating slider widget
+                    ],
+                  ),
+                ),
               ],
               if (userRole == 'guru') ...[
                 const Divider(),
@@ -334,7 +369,9 @@ class CustomNavbarState extends State<CustomNavbar>
                     ),
                     child: Center(
                       child: Text(
-                        userName.length >= 2 ? userName.substring(0, 2).toUpperCase() : userName.toUpperCase(),
+                        userName.length >= 2
+                            ? userName.substring(0, 2).toUpperCase()
+                            : userName.toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -380,8 +417,10 @@ class CustomNavbarState extends State<CustomNavbar>
                         await prefs.remove('token');
                         await prefs.remove('userRole');
                         await prefs.remove('userName');
+                        await prefs.remove('lastUserRating'); // Also clear rating on logout
                         if (context.mounted) {
-                          Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                          Navigator.pushNamedAndRemoveUntil(
+                              context, '/', (route) => false);
                         }
                       },
                     ),
@@ -480,6 +519,61 @@ class CustomNavbarState extends State<CustomNavbar>
           borderRadius: BorderRadius.circular(8),
         ),
       ),
+    );
+  }
+
+  // Widget for the rating slider
+  Widget _buildRatingSlider() {
+    return Column(
+      children: [
+        Slider(
+          value: _currentRating,
+          min: 0,
+          max: 5,
+          divisions: 5, // Allows discrete values from 0 to 5
+          activeColor: Colors.amber, // Color for the filled part of the slider
+          inactiveColor: Colors.grey[300], // Color for the unfilled part
+          onChanged: (newValue) {
+            setState(() {
+              _currentRating = newValue;
+            });
+          },
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (index) {
+            return Icon(
+              index < _currentRating ? Icons.star : Icons.star_border,
+              color: Colors.amber,
+              size: 30,
+            );
+          }),
+        ),
+        const SizedBox(height: 10),
+        ElevatedButton(
+          onPressed: () {
+            // Save the rating before displaying feedback and closing sidebar
+            _saveRating(_currentRating);
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Terima kasih! Anda memberikan rating: ${_currentRating.toInt()} bintang.'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            _closeSidebar(); // Close sidebar after rating
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFF58B05),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text('Kirim Rating'),
+        ),
+      ],
     );
   }
 }
