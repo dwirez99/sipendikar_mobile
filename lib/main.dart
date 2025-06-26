@@ -76,6 +76,11 @@ class _MainAppState extends State<MainApp> {
 
   String _userRole = 'guest';
   String _userName = 'Guest';
+  
+  // Position for draggable FAB
+  double _fabX = 0;
+  double _fabY = 0;
+  bool _fabInitialized = false;
 
   @override
   void initState() {
@@ -99,6 +104,13 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Initialize FAB position if not done yet
+    if (!_fabInitialized) {
+      _fabX = MediaQuery.of(context).size.width - 100;
+      _fabY = MediaQuery.of(context).size.height - 200;
+      _fabInitialized = true;
+    }
+
     return Scaffold(
       body: Stack(
         children: [
@@ -113,42 +125,68 @@ class _MainAppState extends State<MainApp> {
             onLogout: null,
             onProfile: null,
           ),
-        ],
-      ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              spreadRadius: 2,
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(color: Colors.white, width: 3),
-        ),
-        child: FloatingActionButton(
-          onPressed: () {
-            _navbarKey.currentState?.openSidebar();
-          },
-          elevation: 4,
-          backgroundColor: const Color(0xFFF58B05),
-          shape: const CircleBorder(),
-          child: ClipOval(
-            child: Image.asset(
-              'assets/images/logo/logo_dw.png',
-              width: 80,
-              height: 80,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.school, color: Colors.white, size: 32);
+          // Draggable Floating Action Button
+          Positioned(
+            left: _fabX,
+            top: _fabY,
+            child: Draggable(
+              feedback: _buildFAB(isDragging: true),
+              childWhenDragging: Container(), // Hide original when dragging
+              child: _buildFAB(),
+              onDragEnd: (details) {
+                setState(() {
+                  // Get screen dimensions
+                  final screenWidth = MediaQuery.of(context).size.width;
+                  final screenHeight = MediaQuery.of(context).size.height;
+                  
+                  // Calculate new position with boundaries
+                  _fabX = details.offset.dx.clamp(0, screenWidth - 56);
+                  _fabY = details.offset.dy.clamp(0, screenHeight - 56);
+                });
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFAB({bool isDragging = false}) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDragging ? 0.3 : 0.2),
+            spreadRadius: isDragging ? 3 : 2,
+            blurRadius: isDragging ? 8 : 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.white, width: 3),
+      ),
+      child: FloatingActionButton(
+        onPressed: () {
+          _navbarKey.currentState?.openSidebar();
+        },
+        elevation: isDragging ? 8 : 4,
+        backgroundColor: const Color(0xFFF58B05),
+        shape: const CircleBorder(),
+        heroTag: "draggable_fab",
+        child: ClipOval(
+          child: Image.asset(
+            'assets/images/logo/logo_dw.png',
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(Icons.school, color: Colors.white, size: 24);
+            },
+          ),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }

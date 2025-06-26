@@ -411,6 +411,7 @@ class CustomNavbarState extends State<CustomNavbar>
                       icon: Icons.logout,
                       label: 'Logout',
                       color: Colors.red,
+                      textColor: Colors.yellow, // Different text color from button
                       onTap: () async {
                         _closeSidebar();
                         final prefs = await SharedPreferences.getInstance();
@@ -496,24 +497,26 @@ class CustomNavbarState extends State<CustomNavbar>
     required String label,
     required VoidCallback onTap,
     Color? color,
+    Color? textColor,
   }) {
+    final buttonTextColor = textColor ?? Colors.white;
     return ElevatedButton.icon(
       onPressed: onTap,
       icon: Icon(
         icon,
         size: 18,
-        color: color ?? Colors.white,
+        color: buttonTextColor,
       ),
       label: Text(
         label,
         style: TextStyle(
-          color: color ?? Colors.white,
+          color: buttonTextColor,
           fontSize: 14,
         ),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: color ?? const Color(0xFFF58B05),
-        foregroundColor: Colors.white,
+        foregroundColor: buttonTextColor,
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
