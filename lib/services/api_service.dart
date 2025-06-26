@@ -514,19 +514,23 @@ class ApiService {
         contentType: mimeType != null ? MediaType.parse(mimeType) : null,
       ));
     }
-    if (filePenilaian != null) {
-      final mimeType = mime.lookupMimeType(filePenilaian.path);
-      request.files.add(await http.MultipartFile.fromPath(
-        'file_penilaian',
-        filePenilaian.path,
-        contentType: mimeType != null ? MediaType.parse(mimeType) : null,
-      ));
-    }
+    // Note: filePenilaian will be uploaded separately using uploadPenilaian method
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 201 || response.statusCode == 200) {
-      // The backend returns 'foto' as a path like 'foto/namafile.jpg', so just use it directly in the model
-      return PesertaDidik.fromJson(jsonDecode(response.body)['data'] ?? jsonDecode(response.body));
+      final pesertaDidik = PesertaDidik.fromJson(jsonDecode(response.body)['data'] ?? jsonDecode(response.body));
+      
+      // Upload file penilaian separately if provided
+      if (filePenilaian != null) {
+        try {
+          await uploadPenilaian(pesertaDidik.nis, filePenilaian);
+        } catch (e) {
+          print('Warning: Failed to upload penilaian file: $e');
+          // Don't throw error here, as the main data is already saved
+        }
+      }
+      
+      return pesertaDidik;
     } else {
       print('Gagal menambah peserta didik: status=${response.statusCode}, body=${response.body}');
       throw Exception('Gagal menambah peserta didik: ${response.body}');
@@ -554,19 +558,23 @@ class ApiService {
         contentType: mimeType != null ? MediaType.parse(mimeType) : null,
       ));
     }
-    if (filePenilaian != null) {
-      final mimeType = mime.lookupMimeType(filePenilaian.path);
-      request.files.add(await http.MultipartFile.fromPath(
-        'file_penilaian',
-        filePenilaian.path,
-        contentType: mimeType != null ? MediaType.parse(mimeType) : null,
-      ));
-    }
+    // Note: filePenilaian will be uploaded separately using uploadPenilaian method
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200) {
-      // The backend returns 'foto' as a path like 'foto/namafile.jpg', so just use it directly in the model
-      return PesertaDidik.fromJson(jsonDecode(response.body)['data'] ?? jsonDecode(response.body));
+      final pesertaDidik = PesertaDidik.fromJson(jsonDecode(response.body)['data'] ?? jsonDecode(response.body));
+      
+      // Upload file penilaian separately if provided
+      if (filePenilaian != null) {
+        try {
+          await uploadPenilaian(nis, filePenilaian);
+        } catch (e) {
+          print('Warning: Failed to upload penilaian file: $e');
+          // Don't throw error here, as the main data is already saved
+        }
+      }
+      
+      return pesertaDidik;
     } else {
       throw Exception('Gagal update peserta didik: ${response.body}');
     }
@@ -591,9 +599,19 @@ class ApiService {
     if (token != null) {
       request.headers['Authorization'] = 'Bearer $token';
     }
-    request.files.add(await http.MultipartFile.fromPath('file_penilaian', filePenilaian.path));
+
+    // Ensure the file is uploaded with the correct field name and path
+    final mimeType = mime.lookupMimeType(filePenilaian.path);
+    request.files.add(await http.MultipartFile.fromPath(
+      'file', // Use 'file' as the field name
+      filePenilaian.path,
+      contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+    ));
+
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
+    print('Upload penilaian response: ${response.statusCode} - ${response.body}');
+
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception('Gagal upload file penilaian: ${response.body}');
     }
@@ -703,5 +721,129 @@ class ApiService {
       if (data['data'] != null) return data['data'];
     }
     return null;
+  }
+
+  // Get user data
+  Future<Map<String, dynamic>?> getUser() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user'),
+        headers: await _getAuthHeaders(),
+      );
+      print('Get user response: ${response.statusCode} - ${response.body}'); // Debug log
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data is Map<String, dynamic> ? data : null;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user data: $e');
+      return null;
+    }
+  }
+
+  // Get current user's orangtua profile
+  Future<Orangtua?> getCurrentOrangtua() async {
+    try {
+      final userData = await getUser();
+      if (userData == null || userData['id'] == null) return null;
+      
+      final userId = userData['id'];
+      final orangtuaList = await getOrangtuaList();
+      
+      // Find orangtua with matching user_id
+      for (final orangtua in orangtuaList) {
+        if (orangtua.userId == userId) {
+          return orangtua;
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error getting current orangtua: $e');
+      return null;
+    }
+  }
+
+  // Get peserta didik by parent name (for orangtua role access)
+  Future<List<PesertaDidik>> getPesertaDidikByParent({String? parentName}) async {
+    try {
+      // Get current logged-in parent name if not provided
+      String? targetParentName = parentName;
+      if (targetParentName == null) {
+        final prefs = await SharedPreferences.getInstance();
+        targetParentName = prefs.getString('userName');
+        if (targetParentName == null || targetParentName.isEmpty) {
+          throw Exception('Tidak dapat menemukan data nama orang tua yang sedang login');
+        }
+      }
+
+      print('=== API DEBUG: Searching students for parent: $targetParentName ===');
+
+      // Get all students from api/pesertadidiks
+      final response = await http.get(
+        Uri.parse('$baseUrl/pesertadidiks'),
+        headers: await _getAuthHeaders(),
+      );
+      
+      print('API Response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Raw API response: ${response.body.substring(0, 500)}...'); // First 500 chars
+        
+        // Handle paginated response: { pesertadidiks: { data: [...] } }
+        List<dynamic> list;
+        if (data is List) {
+          list = data;
+        } else if (data['pesertadidiks'] != null && data['pesertadidiks']['data'] != null) {
+          list = data['pesertadidiks']['data'];
+        } else if (data['data'] != null) {
+          list = data['data'];
+        } else {
+          throw Exception('Format data peserta didik tidak dikenali');
+        }
+
+        final allStudents = list.map((e) => PesertaDidik.fromJson(e)).toList();
+        print('Total students from API: ${allStudents.length}');
+        
+        // Get all orangtua to match names
+        final orangtuaList = await getOrangtuaList();
+        print('Total parents found: ${orangtuaList.length}');
+        
+        // Debug: print all parent names
+        print('Available parent names:');
+        for (var parent in orangtuaList) {
+          print('  - ID: ${parent.id}, Name: "${parent.namaOrtu}"');
+        }
+        
+        // Filter students by matching parent name
+        final filteredStudents = <PesertaDidik>[];
+        for (var student in allStudents) {
+          final parentData = orangtuaList.firstWhere(
+            (orangtua) => orangtua.id == student.idOrtu,
+            orElse: () => Orangtua(id: -1, namaOrtu: '', notelpOrtu: '', alamat: '', emailOrtu: '', nickname: ''),
+          );
+          
+          print('Student: "${student.namaPd}" (ID: ${student.nis}) -> Parent ID: ${student.idOrtu} -> Parent Name: "${parentData.namaOrtu}"');
+          
+          bool matches = parentData.namaOrtu.toLowerCase().trim() == targetParentName!.toLowerCase().trim();
+          print('  Comparing: "${parentData.namaOrtu.toLowerCase().trim()}" == "${targetParentName.toLowerCase().trim()}" -> $matches');
+          
+          if (matches) {
+            filteredStudents.add(student);
+            print('  ✓ MATCH FOUND!');
+          }
+        }
+
+        print('Final filtered students count: ${filteredStudents.length}');
+        return filteredStudents;
+      } else {
+        print('API Error - Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception('Gagal memuat data peserta didik dari server');
+      }
+    } catch (e) {
+      print('Error getting peserta didik by parent: $e');
+      throw Exception('Gagal memuat data peserta didik: $e');
+    }
   }
 }

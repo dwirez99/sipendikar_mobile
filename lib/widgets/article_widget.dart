@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
-import 'package:sippgkpd/models/article.dart';
-import 'package:sippgkpd/pages/article.dart';
+import 'package:sipendikar/models/article.dart';
+import 'package:sipendikar/pages/article.dart';
 
 class AuthorInfoWidget extends StatelessWidget {
   const AuthorInfoWidget({Key? key}) : super(key: key);

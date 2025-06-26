@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sippgkpd/models/article.dart';
+import 'package:sipendikar/models/article.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart' as share_plus;
 import 'package:flutter_html/flutter_html.dart';

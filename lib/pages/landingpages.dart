@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:carousel_slider/carousel_slider.dart' as carousel;
 import 'package:fl_chart/fl_chart.dart';
-import 'package:sippgkpd/models/article.dart';
-import 'package:sippgkpd/pages/article.dart';
-import 'package:sippgkpd/services/api_service.dart';
-import 'package:sippgkpd/widgets/activity_card.dart';
-import 'package:sippgkpd/widgets/article_widget.dart';
-import 'package:sippgkpd/widgets/section_card.dart';
-import 'package:sippgkpd/widgets/teacher_card.dart';
-import 'package:sippgkpd/widgets/titled_section.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:video_player/video_player.dart'; // Import video_player
+import 'package:video_player/video_player.dart';
+import 'package:sipendikar/models/article.dart';
+import 'package:sipendikar/pages/article.dart';
+import 'package:sipendikar/services/api_service.dart';
+import 'package:sipendikar/widgets/activity_card.dart';
+import 'package:sipendikar/widgets/article_widget.dart';
+import 'package:sipendikar/widgets/section_card.dart';
+import 'package:sipendikar/widgets/teacher_card.dart';
+import 'package:sipendikar/widgets/titled_section.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});

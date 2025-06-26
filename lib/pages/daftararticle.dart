@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sippgkpd/services/api_service.dart';
-import 'package:sippgkpd/models/article.dart';
+import 'package:sipendikar/services/api_service.dart';
+import 'package:sipendikar/models/article.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'article.dart'; // Assuming article.dart contains the detail screen
 

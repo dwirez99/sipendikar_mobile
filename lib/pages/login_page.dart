@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sippgkpd/services/auth_service.dart';
+import 'package:sipendikar/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {

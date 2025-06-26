@@ -87,7 +87,7 @@ class _ManagePesertaDidikPageState extends State<ManagePesertaDidikPage> {
         );
         _refresh();
       } catch (e) {
-        print('Error saving PesertaDidik: $e'); // Added for more detailed debugging
+        print('Error saving PesertaDidik: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal menyimpan: $e'), backgroundColor: Colors.red),
         );
@@ -208,6 +208,7 @@ class _ManagePesertaDidikPageState extends State<ManagePesertaDidikPage> {
                                   const SizedBox(height: 16),
                                   Row(
                                     mainAxisAlignment: isMobile ? MainAxisAlignment.center : MainAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Text("Tinggi Badan (cm):", style: TextStyle(fontWeight: FontWeight.w500)),
                                       const SizedBox(width: 8),
@@ -223,6 +224,7 @@ class _ManagePesertaDidikPageState extends State<ManagePesertaDidikPage> {
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: isMobile ? MainAxisAlignment.center : MainAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Text("Berat Badan (kg):", style: TextStyle(fontWeight: FontWeight.w500)),
                                       const SizedBox(width: 8),
@@ -250,6 +252,7 @@ class _ManagePesertaDidikPageState extends State<ManagePesertaDidikPage> {
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: isMobile ? MainAxisAlignment.center : MainAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Text("Z-Score:", style: TextStyle(fontWeight: FontWeight.w500)),
                                       const SizedBox(width: 8),
@@ -523,6 +526,7 @@ class _ManagePesertaDidikPageState extends State<ManagePesertaDidikPage> {
                                         Padding(
                                           padding: const EdgeInsets.only(top: 4),
                                           child: Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(Icons.description, size: 16, color: Colors.green[700]),
                                               const SizedBox(width: 4),
@@ -563,7 +567,16 @@ class _ManagePesertaDidikPageState extends State<ManagePesertaDidikPage> {
                                           // UNDUH FILE
                                           String url = pd.filePenilaian!;
                                           if (!url.startsWith('http')) {
-                                            url = 'https://projek1-production.up.railway.app/storage/' + url.replaceFirst(RegExp(r'^/?'), '');
+                                            // Handle different path formats from backend
+                                            // Remove leading slash if present
+                                            String cleanPath = url.replaceFirst(RegExp(r'^/?'), '');
+                                            
+                                            // Check if path already contains 'penilaian/' prefix
+                                            if (!cleanPath.startsWith('penilaian/')) {
+                                              cleanPath = 'penilaian/' + cleanPath;
+                                            }
+                                            
+                                            url = 'https://projek1-production.up.railway.app/storage/' + cleanPath;
                                           }
                                           // Open/download file
                                           try {
@@ -584,10 +597,9 @@ class _ManagePesertaDidikPageState extends State<ManagePesertaDidikPage> {
                                               );
                                               _refresh();
                                             } catch (e) {
-                                              // Tampilkan sukses jika file benar-benar terupload meski exception
-                                              _refresh();
+                                              print('Upload penilaian error: $e');
                                               ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('File penilaian berhasil diupload (dengan peringatan: $e)'), backgroundColor: Colors.orange),
+                                                SnackBar(content: Text('Gagal upload file penilaian: $e'), backgroundColor: Colors.red),
                                               );
                                             }
                                           }
@@ -706,6 +718,13 @@ class _PesertaDidikFormPageState extends State<PesertaDidikFormPage> {
           hasExistingPhoto = true;
         });
       }
+      
+      // Initialize existing file penilaian name
+      if (widget.peserta!.filePenilaian != null && widget.peserta!.filePenilaian!.isNotEmpty) {
+        setState(() {
+          filePenilaianName = widget.peserta!.filePenilaian!.split('/').last;
+        });
+      }
     }
     _loadOrangtua();
   }
@@ -819,257 +838,326 @@ class _PesertaDidikFormPageState extends State<PesertaDidikFormPage> {
     }
   }
 
+  Future<void> _saveForm() async {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+
+      final data = {
+        'nama': namaCtrl.text,
+        'tanggal_lahir': tglLahirCtrl.text,
+        'kelas': selectedKelas,
+        'tinggi_badan': tinggiCtrl.text,
+        'berat_badan': beratCtrl.text,
+        'jenis_kelamin': jenisKelamin,
+        'id_ortu': selectedOrangtua?.id,
+      };
+
+      Navigator.pop(context, {
+        'data': data,
+        'foto': foto,
+        'filePenilaian': filePenilaian,
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isEdit ? 'Edit Peserta Didik' : 'Tambah Peserta Didik'),
-        leading: CloseButton(
-          onPressed: () => Navigator.pop(context),
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _saveForm,
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: namaCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nama',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => v == null || v.isEmpty ? 'Nama wajib diisi' : null,
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: namaCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nama',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: tglLahirCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Tanggal Lahir',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    onPressed: _pickDate,
-                  ),
+              validator: (v) => v == null || v.isEmpty ? 'Nama wajib diisi' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: tglLahirCtrl,
+              decoration: InputDecoration(
+                labelText: 'Tanggal Lahir',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.calendar_today),
+                  onPressed: _pickDate,
                 ),
-                readOnly: true, // Make it read-only to force date picker usage
-                validator: (v) => v == null || v.isEmpty ? 'Tanggal lahir wajib diisi' : null,
-                onTap: _pickDate, // Also allow tapping the field itself
               ),
-              const SizedBox(height: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Jenis Kelamin:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                  Row(
+              readOnly: true, // Make it read-only to force date picker usage
+              validator: (v) => v == null || v.isEmpty ? 'Tanggal lahir wajib diisi' : null,
+              onTap: _pickDate, // Also allow tapping the field itself
+            ),
+            const SizedBox(height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Jenis Kelamin:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: RadioListTile<String>(
+                        title: const Text('Laki-laki'),
+                        value: 'Laki-laki',
+                        groupValue: jenisKelamin,
+                        onChanged: (v) => setState(() => jenisKelamin = v!),
+                      ),
+                    ),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: RadioListTile<String>(
+                        title: const Text('Perempuan'),
+                        value: 'Perempuan',
+                        groupValue: jenisKelamin,
+                        onChanged: (v) => setState(() => jenisKelamin = v!),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            DropdownButtonFormField<String>(
+              value: selectedKelas,
+              decoration: const InputDecoration(
+                labelText: 'Kelas',
+                border: OutlineInputBorder(),
+              ),
+              items: kelasOptions.map((k) => DropdownMenuItem(
+                value: k,
+                child: Text(k),
+              )).toList(),
+              onChanged: (v) => setState(() {
+                selectedKelas = v;
+                kelas = v;
+              }),
+              validator: (v) => v == null || v.isEmpty ? 'Kelas wajib diisi' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: tinggiCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tinggi Badan (cm)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Tinggi badan wajib diisi';
+                if (double.tryParse(v) == null) return 'Masukkan angka yang valid';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: beratCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Berat Badan (kg)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Berat badan wajib diisi';
+                if (double.tryParse(v) == null) return 'Masukkan angka yang valid';
+                return null;
+              },
+            ),
+            SizedBox(height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Orangtua:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                orangtuaLoading
+                    ? const LinearProgressIndicator()
+                    : DropdownButtonFormField<Orangtua>(
+                        value: selectedOrangtua,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Pilih Orangtua',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: orangtuaList.map((o) {
+                          return DropdownMenuItem<Orangtua>(
+                            value: o,
+                            child: Text(o.namaOrtu),
+                          );
+                        }).toList(),
+                        onChanged: (o) => setState(() => selectedOrangtua = o),
+                        validator: (v) => v == null ? 'Pilih orangtua' : null,
+                      ),
+              ],
+            ),
+            SizedBox(height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Foto Siswa:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                Center(
+                  child: Stack(
                     children: [
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: RadioListTile<String>(
-                          title: const Text('Laki-laki'),
-                          value: 'Laki-laki',
-                          groupValue: jenisKelamin,
-                          onChanged: (v) => setState(() => jenisKelamin = v!),
-                        ),
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundColor: Colors.grey[300],
+                        backgroundImage: foto != null
+                            ? FileImage(foto!)
+                            : (existingFotoUrl != null ? NetworkImage(existingFotoUrl!) : null) as ImageProvider?,
+                        child: (foto == null && existingFotoUrl == null)
+                            ? Icon(Icons.person, size: 60, color: Colors.grey[600])
+                            : null,
                       ),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: RadioListTile<String>(
-                          title: const Text('Perempuan'),
-                          value: 'Perempuan',
-                          groupValue: jenisKelamin,
-                          onChanged: (v) => setState(() => jenisKelamin = v!),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              DropdownButtonFormField<String>(
-                value: selectedKelas,
-                decoration: const InputDecoration(
-                  labelText: 'Kelas',
-                  border: OutlineInputBorder(),
-                ),
-                items: kelasOptions.map((k) => DropdownMenuItem(
-                  value: k,
-                  child: Text(k),
-                )).toList(),
-                onChanged: (v) => setState(() {
-                  selectedKelas = v;
-                  kelas = v;
-                }),
-                validator: (v) => v == null || v.isEmpty ? 'Kelas wajib diisi' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: tinggiCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Tinggi Badan (cm)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Tinggi badan wajib diisi';
-                  if (double.tryParse(v) == null) return 'Masukkan angka yang valid';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: beratCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Berat Badan (kg)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Berat badan wajib diisi';
-                  if (double.tryParse(v) == null) return 'Masukkan angka yang valid';
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Orangtua:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  orangtuaLoading
-                      ? const LinearProgressIndicator()
-                      : DropdownButtonFormField<Orangtua>(
-                      value: selectedOrangtua,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Pilih Orangtua',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: orangtuaList.map((o) {
-                        return DropdownMenuItem<Orangtua>(
-                          value: o,
-                          child: Text(o.namaOrtu),
-                        );
-                      }).toList(),
-                      onChanged: (o) => setState(() => selectedOrangtua = o),
-                      validator: (v) => v == null ? 'Pilih orangtua' : null,
-                    ), // Added missing closing parenthesis
-                ],
-              ),
-              SizedBox(height: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Foto Siswa:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 60,
-                          backgroundColor: Colors.grey[300],
-                          backgroundImage: foto != null
-                              ? FileImage(foto!)
-                              : (existingFotoUrl != null ? NetworkImage(existingFotoUrl!) : null) as ImageProvider?,
-                          child: (foto == null && existingFotoUrl == null)
-                              ? Icon(Icons.person, size: 60, color: Colors.grey[600])
-                              : null,
-                        ),
-                        if (foto != null || existingFotoUrl != null)
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: CircleAvatar(
-                              backgroundColor: Colors.red,
-                              radius: 18,
-                              child: IconButton(
-                                icon: const Icon(Icons.close, size: 20, color: Colors.white),
-                                onPressed: () {
-                                  setState(() {
-                                    foto = null;
-                                    existingFotoUrl = null;
-                                    hasExistingPhoto = false;
-                                    fotoSize = null;
-                                  });
-                                },
-                              ),
+                      if (foto != null || existingFotoUrl != null)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.red,
+                            radius: 18,
+                            child: IconButton(
+                              icon: const Icon(Icons.close, size: 20, color: Colors.white),
+                              onPressed: () {
+                                setState(() {
+                                  foto = null;
+                                  existingFotoUrl = null;
+                                  hasExistingPhoto = false;
+                                  fotoSize = null;
+                                });
+                              },
                             ),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: ElevatedButton.icon(
                         onPressed: _pickFoto,
                         icon: const Icon(Icons.camera_alt),
                         label: const Text('Ambil/Pilih Foto'),
                       ),
-                      if (fotoSize != null)
-                        Padding(
+                    ),
+                    if (fotoSize != null)
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Padding(
                           padding: const EdgeInsets.only(left: 8.0),
                           child: Text('${(fotoSize! / 1024).toStringAsFixed(0)} KB', style: const TextStyle(fontSize: 12)),
                         ),
-                    ],
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('File Penilaian (PDF/DOC/DOCX, opsional):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('File Penilaian (PDF/DOC/DOCX, opsional):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: ElevatedButton.icon(
+                        onPressed: _pickPenilaian,
+                        icon: const Icon(Icons.upload_file),
+                        label: Text(filePenilaian != null ? 'Ganti File' : 'Pilih File'),
+                      ),
+                    ),
+                    if (filePenilaian != null || (widget.peserta?.filePenilaian != null && widget.peserta!.filePenilaian!.isNotEmpty)) ...[
+                      const SizedBox(width: 8),
                       Flexible(
                         fit: FlexFit.loose,
-                        child: ElevatedButton.icon(
-                          onPressed: _pickPenilaian,
-                          icon: const Icon(Icons.upload_file),
-                          label: const Text('Pilih File'),
-                        ),
-                      ),
-                      if (filePenilaian != null || (widget.peserta?.filePenilaian != null && widget.peserta!.filePenilaian!.isNotEmpty)) ...[
-                        const SizedBox(width: 8),
-                        Row(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.description, color: Colors.blue),
+                            Icon(Icons.description, color: filePenilaian != null ? Colors.blue : Colors.green),
                             const SizedBox(width: 4),
                             Flexible(
                               fit: FlexFit.loose,
                               child: Text(
                                 filePenilaianName ?? (widget.peserta?.filePenilaian?.split('/').last ?? ''),
-                                style: const TextStyle(fontSize: 12),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: filePenilaian != null ? Colors.blue : Colors.green[700],
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 20, color: Colors.red),
-                              onPressed: () {
-                                setState(() {
-                                  filePenilaian = null;
-                                  filePenilaianName = null;
-                                });
-                              },
-                            ),
+                            if (filePenilaian != null || widget.isEdit)
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 20, color: Colors.red),
+                                onPressed: () {
+                                  setState(() {
+                                    filePenilaian = null;
+                                    filePenilaianName = null;
+                                  });
+                                },
+                              ),
                           ],
                         ),
-                      ],
+                      ),
                     ],
+                  ],
+                ),
+                if (filePenilaian != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'File baru terpilih: ${filePenilaianName ?? ''}',
+                      style: const TextStyle(fontSize: 12, color: Colors.blue, fontStyle: FontStyle.italic),
+                    ),
                   ),
-                ],
-              ),
-              SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-                  SizedBox(width: 8),
-                  ElevatedButton(
+                if (widget.isEdit && widget.peserta?.filePenilaian != null && widget.peserta!.filePenilaian!.isNotEmpty && filePenilaian == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'File saat ini: ${widget.peserta!.filePenilaian!.split('/').last}',
+                      style: TextStyle(fontSize: 12, color: Colors.green[700], fontStyle: FontStyle.italic),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context), 
+                    child: const Text('Batal')
+                  ),
+                ),
+                SizedBox(width: 8),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
                         Navigator.pop(context, {
@@ -1077,10 +1165,11 @@ class _PesertaDidikFormPageState extends State<PesertaDidikFormPage> {
                             'namapd': namaCtrl.text,
                             'tanggallahir': tglLahirCtrl.text,
                             'jeniskelamin': jenisKelamin,
-                            'kelas': selectedKelas,
+                            'kelas': selectedKelas ?? '',
+                            'fase': selectedKelas ?? '', // Add fase field with same value as kelas
                             'tinggibadan': tinggiCtrl.text,
                             'beratbadan': beratCtrl.text,
-                            'idortu': selectedOrangtua?.id,
+                            'idortu': selectedOrangtua?.id.toString() ?? '',
                           },
                           'foto': foto,
                           'filePenilaian': filePenilaian,
@@ -1089,10 +1178,10 @@ class _PesertaDidikFormPageState extends State<PesertaDidikFormPage> {
                     },
                     child: const Text('Simpan'),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

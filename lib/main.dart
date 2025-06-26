@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:sippgkpd/pages/login_page.dart';
+import 'package:sipendikar/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/landingpages.dart';
 import 'pages/daftararticle.dart';
@@ -9,6 +9,8 @@ import 'pages/manage_kegiatan_page.dart';
 import 'pages/manage_orangtua_page.dart';
 import 'pages/manage_pesertadidik_page.dart';
 import 'pages/analisis_statusgizi_page.dart';
+import 'pages/nilai_siswa_page.dart';
+import 'pages/status_gizi_page.dart';
 import 'widgets/navigation_button.dart';
 
 void main() async {
@@ -25,7 +27,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SIPPGKPD',
+      title: 'Sipendikar',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -49,6 +51,8 @@ class MyApp extends StatelessWidget {
         '/kelola-orangtua': (context) => const ManageOrangtuaPage(),
         '/kelola-pesertadidik': (context) => const ManagePesertaDidikPage(),
         '/analisis-statusgizi': (context) => const AnalisisStatusGiziPage(),
+        '/nilai-siswa': (context) => const NilaiSiswaPage(),
+        '/status-gizi': (context) => const StatusGiziPage(),
       },
     );
   }

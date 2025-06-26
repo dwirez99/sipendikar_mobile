@@ -1,11 +1,11 @@
 {
-    "name": "sippgkpd",
-    "short_name": "sippgkpd",
+    "name": "Sipendikar",
+    "short_name": "Sipendikar",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Sistem Informasi Peserta Didik dan Kesehatan",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

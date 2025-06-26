@@ -26,21 +26,57 @@ class _ManageOrangtuaPageState extends State<ManageOrangtuaPage> {
   }
 
   void _showForm({Orangtua? orangtua}) async {
-    final result = await showDialog<bool>(
+    final result = await showDialog<Map<String, dynamic>?>(
       context: context,
       builder: (context) => OrangtuaFormDialog(
         orangtua: orangtua,
         onSubmit: (data) async {
-          if (orangtua == null) {
-            await apiService.createOrangtua(data);
-          } else {
-            await apiService.updateOrangtua(orangtua.id, data);
+          try {
+            // Get user data to set nickname as username
+            Map<String, dynamic> submitData = data;
+            if (orangtua == null) {
+              // Only add nickname for new orangtua - email and nickname will be auto-generated in database
+              final userData = await apiService.getUser();
+              print('User data: $userData'); // Debug log
+              if (userData != null && userData['username'] != null) {
+                submitData['nickname'] = userData['username'];
+              } else {
+                // Fallback: use name as nickname if username not available
+                submitData['nickname'] = data['namaortu'] ?? 'orangtua';
+              }
+              print('Submit data: $submitData'); // Debug log
+              await apiService.createOrangtua(submitData);
+              Navigator.pop(context, {'success': true, 'action': 'create'});
+            } else {
+              await apiService.updateOrangtua(orangtua.id, submitData);
+              Navigator.pop(context, {'success': true, 'action': 'update'});
+            }
+          } catch (e) {
+            Navigator.pop(context, {'success': false, 'error': e.toString()});
           }
-          Navigator.pop(context, true);
         },
       ),
     );
-    if (result == true) _loadOrangtua();
+    
+    // Handle result and show appropriate snackbar
+    if (result != null) {
+      if (result['success'] == true) {
+        String action = result['action'];
+        String message = action == 'create' 
+          ? 'Data orangtua berhasil ditambahkan!' 
+          : 'Data orangtua berhasil diperbarui!';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.green),
+        );
+        _loadOrangtua();
+      } else {
+        // Show error message
+        String error = result['error'] ?? 'Terjadi kesalahan';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menyimpan data orangtua: $error'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _deleteOrangtua(int id) async {
@@ -96,13 +132,12 @@ class _ManageOrangtuaPageState extends State<ManageOrangtuaPage> {
             final orangtuas = snapshot.data!;
             return ListView.builder(
               itemCount: orangtuas.length,
-              itemBuilder: (context, index) {
-                final orangtua = orangtuas[index];
+              itemBuilder: (context, index) {                  final orangtua = orangtuas[index];
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ListTile(
                     title: Text(orangtua.namaOrtu),
-                    subtitle: Text('No. Telp: \\${orangtua.notelpOrtu}\nEmail: \\${orangtua.emailOrtu}'),
+                    subtitle: Text('No. Telp: ${orangtua.notelpOrtu}\nAlamat: ${orangtua.alamat}'),
                     isThreeLine: true,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -163,8 +198,7 @@ class _OrangtuaFormDialogState extends State<OrangtuaFormDialog> {
   late TextEditingController _namaController;
   late TextEditingController _notelpController;
   late TextEditingController _alamatController;
-  late TextEditingController _emailController;
-  late TextEditingController _nicknameController;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -172,8 +206,6 @@ class _OrangtuaFormDialogState extends State<OrangtuaFormDialog> {
     _namaController = TextEditingController(text: widget.orangtua?.namaOrtu ?? '');
     _notelpController = TextEditingController(text: widget.orangtua?.notelpOrtu ?? '');
     _alamatController = TextEditingController(text: widget.orangtua?.alamat ?? '');
-    _emailController = TextEditingController(text: widget.orangtua?.emailOrtu ?? '');
-    _nicknameController = TextEditingController(text: widget.orangtua?.nickname ?? '');
   }
 
   @override
@@ -181,20 +213,28 @@ class _OrangtuaFormDialogState extends State<OrangtuaFormDialog> {
     _namaController.dispose();
     _notelpController.dispose();
     _alamatController.dispose();
-    _emailController.dispose();
-    _nicknameController.dispose();
     super.dispose();
   }
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
-      await widget.onSubmit({
-        'namaortu': _namaController.text,
-        'notelportu': _notelpController.text,
-        'alamat': _alamatController.text,
-        'emailortu': _emailController.text,
-        'nickname': _nicknameController.text,
+      setState(() {
+        _isLoading = true;
       });
+      
+      try {
+        await widget.onSubmit({
+          'namaortu': _namaController.text,
+          'notelportu': _notelpController.text,
+          'alamat': _alamatController.text,
+        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -223,28 +263,24 @@ class _OrangtuaFormDialogState extends State<OrangtuaFormDialog> {
                 decoration: const InputDecoration(labelText: 'Alamat'),
                 validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
               ),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
-              ),
-              TextFormField(
-                controller: _nicknameController,
-                decoration: const InputDecoration(labelText: 'Nickname'),
-                validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
-              ),
             ],
           ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
           child: const Text('Batal'),
         ),
         ElevatedButton(
-          onPressed: _submit,
-          child: const Text('Simpan'),
+          onPressed: _isLoading ? null : _submit,
+          child: _isLoading 
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Simpan'),
         ),
       ],
     );
