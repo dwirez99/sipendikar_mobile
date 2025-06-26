@@ -507,7 +507,7 @@ class ApiService {
     if (foto != null) {
       final mimeType = mime.lookupMimeType(foto.path);
       final length = await foto.length();
-      print('Uploading foto: path=${foto.path}, size=$length, mimeType=$mimeType');
+      print('Uploading foto: path=[38;5;2m${foto.path}[0m, size=$length, mimeType=$mimeType');
       request.files.add(await http.MultipartFile.fromPath(
         'foto',
         foto.path,
@@ -525,7 +525,8 @@ class ApiService {
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 201 || response.statusCode == 200) {
-      return PesertaDidik.fromJson(jsonDecode(response.body));
+      // The backend returns 'foto' as a path like 'foto/namafile.jpg', so just use it directly in the model
+      return PesertaDidik.fromJson(jsonDecode(response.body)['data'] ?? jsonDecode(response.body));
     } else {
       print('Gagal menambah peserta didik: status=${response.statusCode}, body=${response.body}');
       throw Exception('Gagal menambah peserta didik: ${response.body}');
@@ -564,7 +565,8 @@ class ApiService {
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200) {
-      return PesertaDidik.fromJson(jsonDecode(response.body));
+      // The backend returns 'foto' as a path like 'foto/namafile.jpg', so just use it directly in the model
+      return PesertaDidik.fromJson(jsonDecode(response.body)['data'] ?? jsonDecode(response.body));
     } else {
       throw Exception('Gagal update peserta didik: ${response.body}');
     }
@@ -595,5 +597,111 @@ class ApiService {
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception('Gagal upload file penilaian: ${response.body}');
     }
+  }
+
+  Future<dynamic> getStatusGiziAnalysis() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/statusgizi'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Gagal memuat data analisis status gizi');
+    }
+  }
+
+  Future<dynamic> getStatusGiziChartData({String? bulan}) async {
+    final url = bulan != null
+        ? '$baseUrl/statusgizi/chart/data?bulan=$bulan'
+        : '$baseUrl/statusgizi/chart/data';
+    final response = await http.get(
+      Uri.parse(url),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Gagal memuat data chart status gizi');
+    }
+  }
+
+  Future<dynamic> calculateStatusGizi(String nis) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/statusgizi/calculate'),
+      headers: await _getAuthHeaders(),
+      body: jsonEncode({'nis': nis}),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Gagal menghitung status gizi: [38;5;1m${response.body}[0m');
+    }
+  }
+
+  Future<void> saveStatusGizi(String nis, double zScore, String status) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/statusgizi'),
+      headers: await _getAuthHeaders(),
+      body: jsonEncode({
+        'nis': nis,
+        'z_score': zScore,
+        'status': status,
+      }),
+    );
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception('Gagal menyimpan status gizi: ${response.body}');
+    }
+  }
+
+  // Ambil detail peserta didik by NIS
+  Future<PesertaDidik> getPesertaDidikByNis(String nis) async {
+    return getPesertaDidikDetail(nis);
+  }
+
+  // Ambil riwayat status gizi by NIS
+  Future<List<Map<String, dynamic>>> getStatusGiziByNis(String nis) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/statusgizi/nis/$nis'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      } else if (data['data'] is List) {
+        return (data['data'] as List).cast<Map<String, dynamic>>();
+      } else {
+        return [];
+      }
+    } else {
+      throw Exception('Gagal memuat riwayat status gizi');
+    }
+  }
+
+  // Hapus status gizi by id
+  Future<void> deleteStatusGizi(String id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/statusgizi/$id'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('Gagal menghapus data status gizi');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getStatusGiziByStatus(String statusGizi) async {
+    if (statusGizi.isEmpty) return null;
+    final response = await http.get(
+      Uri.parse('$baseUrl/statusgizi/$statusGizi'),
+      headers: await _getAuthHeaders(),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is Map<String, dynamic>) return data;
+      if (data is List && data.isNotEmpty) return data.first;
+      if (data['data'] != null) return data['data'];
+    }
+    return null;
   }
 }

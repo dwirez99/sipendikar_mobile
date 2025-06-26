@@ -45,12 +45,36 @@ class _LandingPageState extends State<LandingPage> {
     // 'assets/videos/kinderflix3.mp4',
   ];
 
+  // Tambahkan state untuk chart status gizi
+  Map<String, dynamic>? _statusGiziChartData;
+  String? _chartBulan;
+  bool _isLoadingChart = false;
+  String? _chartError;
+
   @override
   void initState() {
     super.initState();
     _articles = ApiService().getArticles();
     _getUserLocation();
-    _initializeVideoPlayers(); // Initialize all video players
+    _initializeVideoPlayers();
+    _fetchStatusGiziChart();
+  }
+
+  Future<void> _fetchStatusGiziChart() async {
+    setState(() { _isLoadingChart = true; _chartError = null; });
+    try {
+      final data = await ApiService().getStatusGiziChartData();
+      setState(() {
+        _statusGiziChartData = data['data'];
+        _chartBulan = data['bulan'];
+        _isLoadingChart = false;
+      });
+    } catch (e) {
+      setState(() {
+        _chartError = e.toString();
+        _isLoadingChart = false;
+      });
+    }
   }
 
   // Initializes all video controllers from the _videoPaths list
@@ -65,20 +89,23 @@ class _LandingPageState extends State<LandingPage> {
     }
 
     _initializeVideoPlayerFuture = Future.wait(futures).then((_) {
-      // Ensure UI updates after all controllers are initialized
       setState(() {});
-      // Start playing the first video if available
-      if (_videoControllers.isNotEmpty) {
-        _videoControllers[_currentVideoIndex].play();
-      }
+      // DO NOT AUTOPLAY: Do not call play() here
     });
 
     // Add a listener to the currently playing video controller to update UI (progress bar)
     // and also to handle video completion (if not looping) or other states.
     if (_videoControllers.isNotEmpty) {
+      bool wasPlaying = false;
       _videoControllers[_currentVideoIndex].addListener(() {
-        if (!mounted) return;
-        setState(() {}); // Update UI for progress bar, etc.
+        final controller = _videoControllers[_currentVideoIndex];
+        final isPlaying = controller.value.isPlaying;
+        if (!isPlaying && wasPlaying) {
+          // Log only once when paused
+          debugPrint('Video paused at: [38;5;2m${controller.value.position}[0m');
+        }
+        wasPlaying = isPlaying;
+        if (mounted) setState(() {});
       });
     }
   }
@@ -86,10 +113,13 @@ class _LandingPageState extends State<LandingPage> {
   // Toggles the play/pause state of the current video
   void _togglePlayPause() {
     if (_videoControllers.isEmpty) return;
-    if (_videoControllers[_currentVideoIndex].value.isPlaying) {
-      _videoControllers[_currentVideoIndex].pause();
+    final controller = _videoControllers[_currentVideoIndex];
+    if (controller.value.isPlaying) {
+      controller.pause();
+      debugPrint('User pressed PAUSE at: [38;5;2m[1m${controller.value.position}[0m');
     } else {
-      _videoControllers[_currentVideoIndex].play();
+      controller.play();
+      debugPrint('User pressed PLAY at: [38;5;2m[1m${controller.value.position}[0m');
     }
     setState(() {}); // Update the icon
   }
@@ -613,208 +643,75 @@ class _LandingPageState extends State<LandingPage> {
       child: Column(
         children: [
           const Text(
-            'Statistik Pertumbuhan Anak',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+            'Statistik Status Gizi Siswa',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          // Stack charts vertically for mobile
-          Column(
-            children: [
-              // Kelas A Chart
-              Container(
-                height: 180,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green.shade300),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Status Gizi Kelas A',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
-                      ),
+          if (_isLoadingChart)
+            const CircularProgressIndicator()
+          else if (_chartError != null)
+            Text('Gagal memuat data: [38;5;1m[1m[0m[38;5;1m$_chartError[0m', style: TextStyle(color: Colors.red))
+          else if (_statusGiziChartData != null)
+            Column(
+              children: [
+                const Text('Kelas A', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(
+                  height: 180,
+                  child: PieChart(
+                    PieChartData(
+                      sections: _buildPieSections(_statusGiziChartData!['kelasA']),
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 30,
                     ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: PieChart(
-                              PieChartData(
-                                sections: [
-                                  PieChartSectionData(
-                                    color: Colors.green, // Example data
-                                    value: 40,
-                                    title: '40%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  PieChartSectionData(
-                                    color: Colors.yellow,
-                                    value: 30,
-                                    title: '30%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  PieChartSectionData(
-                                    color: Colors.red,
-                                    value: 20,
-                                    title: '20%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  PieChartSectionData(
-                                    color: Colors.blue,
-                                    value: 10,
-                                    title: '10%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLegendItem(Colors.green, 'Baik', '40%'),
-                                _buildLegendItem(Colors.yellow, 'Cukup', '30%'),
-                                _buildLegendItem(Colors.red, 'Kurang', '20%'),
-                                _buildLegendItem(Colors.blue, 'Lebih', '10%'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              // Kelas B Chart
-              Container(
-                height: 180,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.blue.shade300),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Status Gizi Kelas B',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
+                const SizedBox(height: 8),
+                const Text('Kelas B', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(
+                  height: 180,
+                  child: PieChart(
+                    PieChartData(
+                      sections: _buildPieSections(_statusGiziChartData!['kelasB']),
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 30,
                     ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: PieChart(
-                              PieChartData(
-                                sections: [
-                                  PieChartSectionData(
-                                    color: Colors.green, // Example data
-                                    value: 45,
-                                    title: '45%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  PieChartSectionData(
-                                    color: Colors.yellow,
-                                    value: 35,
-                                    title: '35%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  PieChartSectionData(
-                                    color: Colors.red,
-                                    value: 15,
-                                    title: '15%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  PieChartSectionData(
-                                    color: Colors.blue,
-                                    value: 5,
-                                    title: '5%',
-                                    radius: 35,
-                                    titleStyle: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLegendItem(Colors.green, 'Baik', '45%'),
-                                _buildLegendItem(Colors.yellow, 'Cukup', '35%'),
-                                _buildLegendItem(Colors.red, 'Kurang', '15%'),
-                                _buildLegendItem(Colors.blue, 'Lebih', '5%'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(height: 8),
+                if (_chartBulan != null)
+                  Text('Bulan: $_chartBulan', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            )
+          else
+            const Text('Belum ada data status gizi.'),
         ],
       ),
     );
+  }
+
+  // Tambahkan helper untuk PieChart
+  List<PieChartSectionData> _buildPieSections(Map<String, dynamic>? data) {
+    if (data == null) return [];
+    final colors = [
+      const Color(0xFFe57373), // Gizi Kurang
+      const Color(0xFF81c784), // Gizi Baik
+      const Color(0xFFffd54f), // Gizi Lebih
+      const Color(0xFF64b5f6), // Obesitas
+    ];
+    final labels = ['Gizi Kurang', 'Gizi Baik', 'Gizi Lebih', 'Obesitas'];
+    final total = labels.fold<int>(0, (sum, k) => sum + ((data[k] ?? 0) as int));
+    return List.generate(labels.length, (i) {
+      final value = (data[labels[i]] ?? 0) as int;
+      final percent = total > 0 ? (value / total * 100) : 0;
+      return PieChartSectionData(
+        color: colors[i],
+        value: value.toDouble(),
+        title: value > 0 ? '${labels[i]}\n${percent.toStringAsFixed(1)}%' : '',
+        radius: 50,
+        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
+      );
+    });
   }
 
   // Helper widget to display error messages for data loading failures
@@ -891,33 +788,6 @@ class _LandingPageState extends State<LandingPage> {
             'Kegiatan akan ditampilkan di sini setelah ditambahkan',
             style: TextStyle(fontSize: 14, color: Colors.black87),
             textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper widget for chart legends
-  Widget _buildLegendItem(Color color, String label, String percentage) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              '$label $percentage',
-              style: const TextStyle(fontSize: 8),
-              overflow: TextOverflow.ellipsis,
-            ),
           ),
         ],
       ),

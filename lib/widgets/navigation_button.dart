@@ -321,13 +321,6 @@ class CustomNavbarState extends State<CustomNavbar>
                       },
                     ),
                     _buildSubMenuItem(
-                      title: 'Deteksi Stunting',
-                      onTap: () {
-                        _closeSidebar();
-                        Navigator.pushNamed(context, '/stunting');
-                      },
-                    ),
-                    _buildSubMenuItem(
                       title: 'Kelola Kegiatan Instansi',
                       onTap: () {
                         _closeSidebar();
@@ -339,6 +332,13 @@ class CustomNavbarState extends State<CustomNavbar>
                       onTap: () {
                         _closeSidebar();
                         Navigator.pushNamed(context, '/kelola-orangtua');
+                      },
+                    ),
+                    _buildSubMenuItem(
+                      title: 'Analisis Status Gizi Siswa',
+                      onTap: () {
+                        _closeSidebar();
+                        Navigator.pushNamed(context, '/analisis-statusgizi');
                       },
                     ),
                   ],

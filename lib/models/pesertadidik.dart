@@ -10,6 +10,8 @@ class PesertaDidik {
   final double beratBadan;
   final String? foto;
   final String? filePenilaian;
+  final String? statusGizi;
+  final double? zScore;
 
   PesertaDidik({
     required this.nis,
@@ -23,11 +25,13 @@ class PesertaDidik {
     required this.beratBadan,
     this.foto,
     this.filePenilaian,
+    this.statusGizi,
+    this.zScore,
   });
 
   factory PesertaDidik.fromJson(Map<String, dynamic> json) {
     return PesertaDidik(
-      nis: json['nis'] ?? '',
+      nis: json['nis'].toString(),
       idOrtu: int.tryParse(json['idortu'].toString()) ?? 0,
       namaPd: json['namapd'] ?? '',
       tanggalLahir: json['tanggallahir'] ?? '',
@@ -38,6 +42,8 @@ class PesertaDidik {
       beratBadan: double.tryParse(json['beratbadan'].toString()) ?? 0.0,
       foto: json['foto'],
       filePenilaian: json['file_penilaian'],
+      statusGizi: json['status_gizi'],
+      zScore: json['z_score'] != null ? double.tryParse(json['z_score'].toString()) : null,
     );
   }
 
@@ -54,6 +60,8 @@ class PesertaDidik {
       'beratbadan': beratBadan,
       'foto': foto,
       'file_penilaian': filePenilaian,
+      'status_gizi': statusGizi,
+      'z_score': zScore,
     };
   }
 }

@@ -8,6 +8,7 @@ import 'pages/daftararticle.dart';
 import 'pages/manage_kegiatan_page.dart';
 import 'pages/manage_orangtua_page.dart';
 import 'pages/manage_pesertadidik_page.dart';
+import 'pages/analisis_statusgizi_page.dart';
 import 'widgets/navigation_button.dart';
 
 void main() async {
@@ -47,6 +48,7 @@ class MyApp extends StatelessWidget {
         '/kegiatan-instansi': (context) => const ManageKegiatanPage(),
         '/kelola-orangtua': (context) => const ManageOrangtuaPage(),
         '/kelola-pesertadidik': (context) => const ManagePesertaDidikPage(),
+        '/analisis-statusgizi': (context) => const AnalisisStatusGiziPage(),
       },
     );
   }
